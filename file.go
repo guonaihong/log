@@ -3,11 +3,16 @@ package log
 import (
 	"os"
 	"sync"
+	"time"
 )
 
 const ErrLimit = errors.New("The length of the written data exceeds the limit")
 
 const defaultPrefix = "default-"
+
+const GB = 1024 * 1024 * 1024
+const MB = 1024 * 1024
+const KB = 1024
 
 type File struct {
 	Compress  string
@@ -35,23 +40,45 @@ func NewFile(prefix, compress string, maxSize, maxArchive int) *File {
 	}
 }
 
-func (f *File) checkSize(b []byte) error {
+func (f *File) checkSize(b []byte) (err error) {
+	if len(b) > f.MaxSize {
+		return ErrLimit
+	}
+
 	sb := f.fd.Stat()
-	if sb.Size() + len(b) {
+	if sb.Size()+len(b) > f.MaxSize {
+		//todo compress
+		os.Rename(sb.Name(), time.Now().Format("2006-01-02_15:04:05")+".log")
+
+		err = f.openNew()
+		if err != nil {
+			return
+		}
 	}
 }
 
-func (f *File) openNew() {
+func (f *File) openNew() (err error) {
+	f.fd.Close()
+	f.fd, err = os.Create(defaultPrefix + "0.log")
+	if err != nil {
+		return err
+	}
 }
 
 func (f *File) Write(b []byte) (n int, err error) {
 	f.Lock()
 	defer f.Unlock()
 
-	if len(b) > f.MaxSize {
-		return 0, ErrLimit
+	err = f.checkSize(b)
+	if err != nil {
+		return
 	}
+
+	return f.fd.Write(b)
 }
 
 func (f *File) Close() {
+	f.Lock()
+	defer f.Unlock()
+	f.Close()
 }
