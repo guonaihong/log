@@ -48,7 +48,13 @@ func (f *File) checkSize(b []byte) (err error) {
 	sb := f.fd.Stat()
 	if sb.Size()+len(b) > f.MaxSize {
 		//todo compress
-		os.Rename(sb.Name(), time.Now().Format("2006-01-02_15:04:05")+".log")
+		now := time.Now()
+		year, month, day := now.Date()
+
+		newName := fmt.Sprintf("%d%02d%02d%02d%02d%02d",
+			year, month, day, now.Hour(), now.Minute(), now.Second())
+
+		os.Rename(sb.Name(), newName+".log")
 
 		err = f.openNew()
 		if err != nil {
