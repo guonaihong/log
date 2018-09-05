@@ -5,6 +5,7 @@ type Log struct {
 }
 
 func NewLog(level int) *Log {
+	return nil
 }
 
 func (l *Log) Debugf(format string, a ...interface{}) {
