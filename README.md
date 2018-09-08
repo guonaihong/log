@@ -30,7 +30,7 @@ func NewLog(level string,    //设置日志等级
             procName string, //设置每行日志的tag
             w ...io.Writer,  //设置多个输出源，如果要打印到stdout，这里就写os.Stdout
                              // log.go里面默认一个输出源都没有
-) *Log {}
+) *Log
 
 //输出debug等级日志
 func (l *Log) Debugf(format string, a ...interface{}) 

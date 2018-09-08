@@ -15,7 +15,6 @@ import (
 	"time"
 )
 
-//TODO return err
 var (
 	ErrLimit   = errors.New("The length of the written data exceeds the limit")
 	ErrNotDoIt = errors.New("Don't do it")
@@ -48,6 +47,7 @@ type File struct {
 	filename    chan string
 	quitDel     chan struct{}
 	maybeDel    chan struct{}
+	errs        chan error
 	fd          *os.File
 	sync.RWMutex
 	sync.WaitGroup
@@ -83,8 +83,14 @@ func NewFile(prefix string, dir string, compress int, maxSize, maxArchive int) (
 
 	}
 
+	dir = filepath.Dir(dir)
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		os.MkdirAll(dir, 0755)
+	}
+
 	f = &File{
-		dir:         filepath.Dir(dir),
+		dir:         dir,
 		defaultName: strings.TrimSpace(name),
 		compress:    compress,
 		prefix:      prefix,
@@ -93,6 +99,7 @@ func NewFile(prefix string, dir string, compress int, maxSize, maxArchive int) (
 		filename:    make(chan string, 1000),
 		maybeDel:    make(chan struct{}, 1000),
 		quitDel:     make(chan struct{}),
+		errs:        make(chan error, 10),
 	}
 
 	f.Add(2)
@@ -103,15 +110,15 @@ func NewFile(prefix string, dir string, compress int, maxSize, maxArchive int) (
 }
 
 func (f *File) fileNameNew() string {
-	return f.prefix + genFileName()
+	return f.dir + "/" + f.prefix + genFileName()
 }
 
 func (f *File) defaultFileName() string {
 	if f.defaultName != "" {
-		return filepath.Clean(f.prefix + f.defaultName)
+		return filepath.Clean(f.dir + "/" + f.prefix + f.defaultName)
 	}
 
-	return f.prefix + "default.log"
+	return f.dir + "/" + f.prefix + "default.log"
 }
 
 func (f *File) getTimeFormFile(name string) string {
@@ -137,7 +144,7 @@ func (f *File) sortFile(files0 []os.FileInfo) []os.FileInfo {
 			continue
 		}
 
-		if v.Name() == f.defaultFileName() {
+		if f.dir+"/"+v.Name() == f.defaultFileName() {
 			continue
 		}
 
@@ -172,9 +179,30 @@ func printFile(prefix string, files []os.FileInfo) {
 	}
 }
 
+func (f *File) recvError() error {
+	select {
+	case err, _ := <-f.errs:
+		return err
+	default:
+	}
+
+	return nil
+}
+
+func (f *File) sendError(err error) {
+	select {
+	case f.errs <- err:
+	default:
+		select {
+		case <-f.errs:
+		}
+	}
+}
+
 func (f *File) getOldFile() []os.FileInfo {
 	files0, err := ioutil.ReadDir(f.dir)
 	if err != nil {
+		f.sendError(err)
 		return nil
 	}
 
@@ -182,7 +210,7 @@ func (f *File) getOldFile() []os.FileInfo {
 
 	files := f.sortFile(files0)
 
-	//printFile("sort after", files)
+	printFile("sort after", files)
 
 	if len(files) <= f.maxArchive {
 		return nil
@@ -204,7 +232,9 @@ func (f *File) sortAndDel() {
 		case <-f.maybeDel:
 			files := f.getOldFile()
 			for _, v := range files {
-				os.Remove(v.Name())
+				if err := os.Remove(f.dir + "/" + v.Name()); err != nil {
+					f.sendError(err)
+				}
 			}
 		case _, ok := <-f.quitDel:
 			if !ok {
@@ -239,7 +269,10 @@ func (f *File) gzipFile(name string) error {
 	io.Copy(zw, inFd)
 	zw.Close()
 
-	os.Remove(name)
+	if err = os.Remove(name); err != nil {
+		fmt.Printf("%s\n", err)
+	}
+
 	return nil
 }
 
@@ -250,7 +283,7 @@ func (f *File) compressLoop() {
 
 		err := f.gzipFile(v)
 		if err != nil {
-			fmt.Printf("gzip: fail %s\n", err)
+			f.sendError(err)
 			continue
 		}
 
@@ -320,7 +353,10 @@ func (f *File) checkSize(b []byte) (err error) {
 	if int(sb.Size())+len(b) > f.maxSize {
 
 		newName := f.fileNameNew()
-		os.Rename(sb.Name(), newName)
+		err = os.Rename(f.defaultFileName(), newName)
+		if err != nil {
+			return
+		}
 
 		select {
 		case f.filename <- newName:
@@ -343,7 +379,7 @@ func (f *File) openNew() (err error) {
 		f.fd = nil
 	}
 
-	f.fd, err = os.Create(f.defaultFileName())
+	f.fd, err = os.OpenFile(f.defaultFileName(), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
@@ -353,6 +389,11 @@ func (f *File) openNew() (err error) {
 func (f *File) Write(b []byte) (n int, err error) {
 	f.Lock()
 	defer f.Unlock()
+
+	err = f.recvError()
+	if err != nil {
+		return
+	}
 
 	err = f.checkSize(b)
 	if err != nil {
