@@ -190,11 +190,15 @@ func (f *File) recvError() error {
 }
 
 func (f *File) sendError(err error) {
-	select {
-	case f.errs <- err:
-	default:
+	for {
 		select {
-		case <-f.errs:
+		case f.errs <- err:
+			return
+		default:
+			select {
+			case <-f.errs:
+			default:
+			}
 		}
 	}
 }
@@ -210,7 +214,7 @@ func (f *File) getOldFile() []os.FileInfo {
 
 	files := f.sortFile(files0)
 
-	printFile("sort after", files)
+	//printFile("sort after", files)
 
 	if len(files) <= f.maxArchive {
 		return nil
