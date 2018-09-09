@@ -10,8 +10,8 @@ func TestDebugf(t *testing.T) {
 
 	l.AddWriter(os.Stdout)
 
-	l.Debugf("debug hello world\n")
-	l.Infof("info hello world\n")
-	l.Warnf("warn hello world\n")
-	l.Errorf("error hello world\n")
+	l.Debugf("hello world\n")
+	l.Infof("hello world\n")
+	l.Warnf("hello world\n")
+	l.Errorf("hello world\n")
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -54,7 +55,7 @@ func NewLog(level string, procName string, w ...io.Writer) *Log {
 	}
 }
 
-func (l *Log) formatHeader(level string) {
+func (l *Log) formatHeader(caller bool, level string) {
 
 	now := time.Now()
 
@@ -89,20 +90,34 @@ func (l *Log) formatHeader(level string) {
 		level,
 		padding,
 	)
+
+	if caller {
+		_, file, line, ok := runtime.Caller(3)
+		if !ok {
+			file = "???"
+			line = 0
+		}
+		fmt.Fprintf(
+			l.buf,
+			`<%s:%d>`,
+			file,
+			line,
+		)
+	}
 }
 
 func (l *Log) AddWriter(w ...io.Writer) {
 	l.w = append(l.w, w...)
 }
 
-func (l *Log) multWrite(level string, format string, a ...interface{}) {
+func (l *Log) multWrite(caller bool, level string, format string, a ...interface{}) {
 	l.Lock()
 	defer func() {
 		l.buf.Reset()
 		l.Unlock()
 	}()
 
-	l.formatHeader(level)
+	l.formatHeader(caller, level)
 	fmt.Fprintf(l.buf, format, a...)
 
 	l.Add(len(l.w))
@@ -125,7 +140,7 @@ func (l *Log) Debugf(format string, a ...interface{}) {
 
 	defer l.buf.Reset()
 
-	l.multWrite("debug", format, a...)
+	l.multWrite(false, "debug", format, a...)
 }
 
 func (l *Log) Infof(format string, a ...interface{}) {
@@ -133,7 +148,7 @@ func (l *Log) Infof(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite("info", format, a...)
+	l.multWrite(false, "info", format, a...)
 }
 
 func (l *Log) Warnf(format string, a ...interface{}) {
@@ -141,7 +156,7 @@ func (l *Log) Warnf(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite("warn", format, a...)
+	l.multWrite(true, "warn", format, a...)
 }
 
 func (l *Log) Errorf(format string, a ...interface{}) {
@@ -149,5 +164,5 @@ func (l *Log) Errorf(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite("error", format, a...)
+	l.multWrite(true, "error", format, a...)
 }
