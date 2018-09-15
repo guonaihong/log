@@ -30,13 +30,15 @@ const (
 
 const defaultMaxSize = 100 * MB
 
+type CompressType int
+
 const (
-	Gzip = iota
+	Gzip CompressType = iota
 	NotCompress
 )
 
 type File struct {
-	compress   int
+	compress   CompressType
 	maxSize    int
 	maxArchive int
 
@@ -53,7 +55,7 @@ type File struct {
 	sync.WaitGroup
 }
 
-func genFileSuffix(compressType int) (suffix string) {
+func genFileSuffix(compressType CompressType) (suffix string) {
 	switch compressType {
 	case Gzip:
 		suffix = ".gz"
@@ -62,7 +64,7 @@ func genFileSuffix(compressType int) (suffix string) {
 	return
 }
 
-func NewFile(prefix string, dir string, compress int, maxSize, maxArchive int) (f *File) {
+func NewFile(prefix string, dir string, compress CompressType, maxSize, maxArchive int) (f *File) {
 
 	if prefix == "" {
 		prefix = defaultPrefix
