@@ -25,6 +25,8 @@ func (f *File) Close()       //关闭输出源
 
 ##### `log.go`
 提供多级日志输出，可设置多个输出源
+log.go默认一个输出源都没有, 连stdout或者stderr都不会带，使用时需填充一个
+file_write.go 可和log.go组合使用，只要NewFile返回的输出源，填充至NewLog第3个参数就行
 ``` golang
 func NewLog(level string,    //设置日志等级
             procName string, //设置每行日志的tag
@@ -43,4 +45,10 @@ func (l *Log) Warnf(format string, a ...interface{})
 
 //输出error等日志
 func (l *Log) Errorf(format string, a ...interface{}) 
+```
+
+##### `tcp_udp_write.go`
+ParseSocket可返回tcp 或者 udp 句柄, 可和log.go组合使用，只要返回的句柄填充至log.go第3参数即可
+``` golang
+func ParseSocket(url string) (io.Writer, error) (io.Writer, error)
 ```
