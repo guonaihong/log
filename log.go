@@ -18,9 +18,9 @@ type Log struct {
 
 	buf *bytes.Buffer
 
-	level int
-
 	w []io.Writer
+
+	level int
 }
 
 const (
@@ -110,7 +110,30 @@ func (l *Log) AddWriter(w ...io.Writer) {
 	l.w = append(l.w, w...)
 }
 
-func (l *Log) multWrite(caller bool, level string, format string, a ...interface{}) {
+func (l *Log) multWrite(caller bool, level string, a ...interface{}) {
+	l.Lock()
+	defer func() {
+		l.buf.Reset()
+		l.Unlock()
+	}()
+
+	l.formatHeader(caller, level)
+	fmt.Fprint(l.buf, a...)
+
+	l.Add(len(l.w))
+	for _, w := range l.w {
+		go func(w io.Writer) {
+			defer l.Done()
+			if w, ok := w.(io.Writer); ok {
+				w.Write(l.buf.Bytes())
+			}
+		}(w)
+	}
+
+	l.Wait()
+}
+
+func (l *Log) multWritef(caller bool, level string, format string, a ...interface{}) {
 	l.Lock()
 	defer func() {
 		l.buf.Reset()
@@ -140,7 +163,17 @@ func (l *Log) Debugf(format string, a ...interface{}) {
 
 	defer l.buf.Reset()
 
-	l.multWrite(false, "debug", format, a...)
+	l.multWritef(false, "debug", format, a...)
+}
+
+func (l *Log) Debug(a ...interface{}) {
+	if l.level > lDebug {
+		return
+	}
+
+	defer l.buf.Reset()
+
+	l.multWrite(false, "debug", a...)
 }
 
 func (l *Log) Infof(format string, a ...interface{}) {
@@ -148,7 +181,15 @@ func (l *Log) Infof(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite(false, "info", format, a...)
+	l.multWritef(false, "info", format, a...)
+}
+
+func (l *Log) Info(a ...interface{}) {
+	if l.level > lInfo {
+		return
+	}
+
+	l.multWrite(false, "info", a...)
 }
 
 func (l *Log) Warnf(format string, a ...interface{}) {
@@ -156,7 +197,15 @@ func (l *Log) Warnf(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite(true, "warn", format, a...)
+	l.multWritef(true, "warn", format, a...)
+}
+
+func (l *Log) Warn(a ...interface{}) {
+	if l.level > lWarn {
+		return
+	}
+
+	l.multWrite(true, "warn", a...)
 }
 
 func (l *Log) Errorf(format string, a ...interface{}) {
@@ -164,5 +213,13 @@ func (l *Log) Errorf(format string, a ...interface{}) {
 		return
 	}
 
-	l.multWrite(true, "error", format, a...)
+	l.multWritef(true, "error", format, a...)
+}
+
+func (l *Log) Error(a ...interface{}) {
+	if l.level > lError {
+		return
+	}
+
+	l.multWrite(true, "error", a...)
 }

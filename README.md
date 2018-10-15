@@ -9,11 +9,11 @@
 ##### `file_write.go`
 主要提供文件滚动，压缩，最多保存多个过期文件的功能
 ``` golang
-func NewFile(prefix string,  //设置保存文件名的前缀,为空的话使用默认前缀名
-            dir string,      //设置默认文件名
-            compress int,    //是否压缩过期文件，目前只支持gzip压缩
-            maxSize,         //单个日志文件最大限制
-            maxArchive int,  //最多保存多少个过期文件
+func NewFile(prefix string,           //设置保存文件名的前缀,为空的话使用默认前缀名
+            dir string,               //设置默认文件名
+            compress CompressType,    //是否压缩过期文件，目前只支持gzip压缩(log.Gzip) 不压缩(log.NotCompress)
+            maxSize,                  //单个日志文件最大限制
+            maxArchive int,           //最多保存多少个过期文件
             ) (f *File) {
 }
 
@@ -37,14 +37,26 @@ func NewLog(level string,    //设置日志等级
 //输出debug等级日志
 func (l *Log) Debugf(format string, a ...interface{}) 
 
+//不带格式化功能的debug等级日志输出函数
+func (l *Log) Debug(a ...interface{});
+
 //输出info等级日志
 func (l *Log) Infof(format string, a ...interface{}) 
+
+//不带格式化功能的info等级日志输出函数
+func (l *Log) Info(a ...interface{});
 
 //输出warn等级日志
 func (l *Log) Warnf(format string, a ...interface{})
 
+//不带格式化功能的warn等级日志输出函数
+func (l *Log) Warn(a ...interface{})
+
 //输出error等日志
 func (l *Log) Errorf(format string, a ...interface{}) 
+
+//不带格式化功能的error等级日志输出函数
+func (l *Log) Error(a ...interface{})
 ```
 
 ##### `tcp_udp_write.go`
