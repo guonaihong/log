@@ -13,14 +13,16 @@ import (
 type Log struct {
 	procName string
 
-	sync.Mutex
-	sync.WaitGroup
+	*sync.Mutex
+	*sync.WaitGroup
 
 	buf *bytes.Buffer
 
 	w []io.Writer
 
 	level int
+
+	funcFrame int
 }
 
 const (
@@ -48,11 +50,20 @@ func levelStr2N(level string) int {
 
 func NewLog(level string, procName string, w ...io.Writer) *Log {
 	return &Log{
-		procName: procName,
-		level:    levelStr2N(level),
-		buf:      bytes.NewBuffer(make([]byte, 512)),
-		w:        append([]io.Writer{nil}, w...),
+		procName:  procName,
+		Mutex:     &sync.Mutex{},
+		WaitGroup: &sync.WaitGroup{},
+		level:     levelStr2N(level),
+		buf:       bytes.NewBuffer(make([]byte, 512)),
+		funcFrame: 3,
+		w:         append([]io.Writer{nil}, w...),
 	}
+}
+
+func (l *Log) F(frame int) *Log {
+	Log := *l
+	Log.funcFrame += frame
+	return &Log
 }
 
 func (l *Log) formatHeader(caller bool, level string) {
@@ -92,7 +103,7 @@ func (l *Log) formatHeader(caller bool, level string) {
 	)
 
 	if caller {
-		_, file, line, ok := runtime.Caller(3)
+		_, file, line, ok := runtime.Caller(l.funcFrame)
 		if !ok {
 			file = "???"
 			line = 0
@@ -161,8 +172,6 @@ func (l *Log) Debugf(format string, a ...interface{}) {
 		return
 	}
 
-	defer l.buf.Reset()
-
 	l.multWritef(false, "debug", format, a...)
 }
 
@@ -170,8 +179,6 @@ func (l *Log) Debug(a ...interface{}) {
 	if l.level > lDebug {
 		return
 	}
-
-	defer l.buf.Reset()
 
 	l.multWrite(false, "debug", a...)
 }

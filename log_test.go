@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+func error2(log *Log, a ...interface{}) {
+	log.F(1).Error(a...)
+}
+
 func TestDebugf(t *testing.T) {
 	l := NewLog("debug", "test")
 
@@ -17,4 +21,6 @@ func TestDebugf(t *testing.T) {
 	l.Warn("hello", "world\n")
 	l.Errorf("hello world\n")
 	l.Error("hello", "world\n")
+
+	error2(l, "hello2 world2\n")
 }
