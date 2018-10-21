@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -20,9 +21,9 @@ type Log struct {
 
 	w []io.Writer
 
-	level int
-
+	level     int
 	funcFrame int
+	sessionID string
 }
 
 const (
@@ -61,9 +62,15 @@ func NewLog(level string, procName string, w ...io.Writer) *Log {
 }
 
 func (l *Log) F(frame int) *Log {
-	Log := *l
-	Log.funcFrame += frame
-	return &Log
+	log := *l
+	log.funcFrame += frame
+	return &log
+}
+
+func (l *Log) ID(sessionID string) *Log {
+	log := *l
+	log.sessionID = sessionID
+	return &log
 }
 
 func (l *Log) formatHeader(caller bool, level string) {
@@ -97,7 +104,7 @@ func (l *Log) formatHeader(caller bool, level string) {
 
 	fmt.Fprintf(
 		l.buf,
-		"[%s%s]",
+		"[%s%s] ",
 		level,
 		padding,
 	)
@@ -110,9 +117,17 @@ func (l *Log) formatHeader(caller bool, level string) {
 		}
 		fmt.Fprintf(
 			l.buf,
-			`<%s:%d>`,
-			file,
+			`[%s:%d] `,
+			filepath.Base(file),
 			line,
+		)
+	}
+
+	if len(l.sessionID) > 0 {
+		fmt.Fprintf(
+			l.buf,
+			"<sid:%s> ",
+			l.sessionID,
 		)
 	}
 }

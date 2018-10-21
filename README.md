@@ -34,6 +34,14 @@ func NewLog(level string,    //设置日志等级
                              // log.go里面默认一个输出源都没有
 ) *Log
 
+
+//F函数可以指定出错时打印哪一种调用栈,可和ID函数和等级函数组合使用
+//特别是调用时包装了Error或者Warn函数时，可用F函数修改下需打印的调用栈
+func (l *Log) F(frame int) *Log
+
+//ID函数传递sessionID，可和等级日志函数组合使用
+func (l *Log) ID(sessionID string) *Log
+
 //输出debug等级日志
 func (l *Log) Debugf(format string, a ...interface{}) 
 
@@ -63,4 +71,70 @@ func (l *Log) Error(a ...interface{})
 ParseSocket可返回tcp 或者 udp 句柄, 可和log.go组合使用，只要返回的句柄填充至log.go第3参数即可
 ``` golang
 func ParseSocket(url string) (io.Writer, error) (io.Writer, error)
+```
+
+##### `log.go example`
+``` golang
+    l := NewLog("debug", "test")
+
+    l.AddWriter(os.Stdout)
+
+    l.Debugf("hello world\n")
+    l.Infof("hello world\n")
+    l.Info("hello", " world\n")
+    l.Warnf("hello world\n")
+    l.Warn("hello", " world\n")
+    l.Errorf("hello world\n")
+    l.Error("hello", " world\n")
+
+    error2(l, "hello2 world2\n")
+
+    var wg sync.WaitGroup
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        l.ID("1").Debugf("hello world.1\n")
+        l.ID("1").Infof("hello world.1\n")
+        l.ID("1").Info("hello", " world.1\n")
+        l.ID("1").Warnf("hello world.1\n")
+        l.ID("1").Warn("hello", " world.1\n")
+        l.ID("1").Errorf("hello world.1\n")
+        l.ID("1").Error("hello", " world.1\n")
+    }()
+
+    l.ID("2").Debugf("hello world.2\n")
+    l.ID("2").Infof("hello world.2\n")
+    l.ID("2").Info("hello", " world.2\n")
+    l.ID("2").Warnf("hello world.2\n")
+    l.ID("2").Warn("hello", " world.2\n")
+    l.ID("2").Errorf("hello world.2\n")
+    l.ID("2").Error("hello", " world.2\n")
+    wg.Wait()
+
+```
+
+输出:
+```console
+[test] [2018-10-21 14:24:43.530399] [debug] hello world
+[test] [2018-10-21 14:24:43.530551] [info ] hello world
+[test] [2018-10-21 14:24:43.530612] [info ] hello world
+[test] [2018-10-21 14:24:43.530629] [warn ] [log_test.go:21] hello world
+[test] [2018-10-21 14:24:43.530656] [warn ] [log_test.go:22] hello world
+[test] [2018-10-21 14:24:43.530684] [error] [log_test.go:23] hello world
+[test] [2018-10-21 14:24:43.530706] [error] [log_test.go:24] hello world
+[test] [2018-10-21 14:24:43.530732] [error] [log_test.go:26] hello2 world2
+[test] [2018-10-21 14:24:43.530750] [debug] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530770] [info ] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530786] [info ] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530801] [warn ] [log_test.go:44] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530822] [warn ] [log_test.go:45] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530844] [error] [log_test.go:46] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530864] [error] [log_test.go:47] <sid:2> hello world.2
+[test] [2018-10-21 14:24:43.530893] [debug] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.530918] [info ] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.530953] [info ] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.531009] [warn ] [log_test.go:35] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.531026] [warn ] [log_test.go:36] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.531041] [error] [log_test.go:37] <sid:1> hello world.1
+[test] [2018-10-21 14:24:43.531063] [error] [log_test.go:38] <sid:1> hello world.1
 ```
