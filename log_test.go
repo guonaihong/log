@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func error2(log *Log, a ...interface{}) {
-	log.F(1).Error(a...)
-}
-
 func TestDebugf(t *testing.T) {
+	error2 := func(log *Log, a ...interface{}) {
+		log.F(1).Error(a...)
+	}
+
 	l := NewLog("debug", "test")
 
 	l.AddWriter(os.Stdout)
@@ -23,7 +23,7 @@ func TestDebugf(t *testing.T) {
 	l.Errorf("hello world\n")
 	l.Error("hello", " world\n")
 
-	error2(l, "hello2 world2\n")
+	error2(l /* *Log */, "hello2 world2\n")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
