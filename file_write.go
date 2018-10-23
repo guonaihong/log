@@ -20,7 +20,7 @@ var (
 	ErrNotDoIt = errors.New("Don't do it")
 )
 
-const defaultPrefix = "log-"
+const defaultPrefix = "default"
 
 const (
 	KB = 1024
@@ -75,7 +75,8 @@ func NewFile(prefix string, dir string, compress CompressType, maxSize, maxArchi
 	}
 
 	name := ""
-	if len(dir) > 0 && (dir[len(dir)-1] != '/' || dir[len(dir)-1] != '\\') {
+
+	if len(dir) > 0 && (dir[len(dir)-1] != '/' && dir[len(dir)-1] != '\\') {
 		name = filepath.Base(dir)
 		if name == "." {
 			name = ""
@@ -120,7 +121,7 @@ func (f *File) defaultFileName() string {
 		return filepath.Clean(f.dir + "/" + f.prefix + f.defaultName)
 	}
 
-	return f.dir + "/" + f.prefix + "default.log"
+	return f.dir + "/" + f.prefix + ".log"
 }
 
 func (f *File) getTimeFormFile(name string) string {

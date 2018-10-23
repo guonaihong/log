@@ -64,6 +64,30 @@ func TestWrite4(t *testing.T) {
 	}
 }
 
+func TestWrite5(t *testing.T) {
+	var file *File
+	file = NewFile("vpr-log", "./test-log/", Gzip, 1*MB, 3)
+	defer file.Close()
+	for i := 0; i < 1024*1024/len("hello world"); i++ {
+		_, err := file.Write([]byte("hello world"))
+		if err != nil {
+			t.Fatalf("err:%s\n", err)
+		}
+	}
+}
+
+func TestWrite6(t *testing.T) {
+	var file *File
+	file = NewFile("", "./test-log/", Gzip, 1*MB, 3)
+	defer file.Close()
+	for i := 0; i < 1024*1024/len("hello world"); i++ {
+		_, err := file.Write([]byte("hello world"))
+		if err != nil {
+			t.Fatalf("err:%s\n", err)
+		}
+	}
+}
+
 func BenchmarkWrite(b *testing.B) {
 	var file *File
 	file = NewFile("test-", ".", Gzip, 1*MB, 3)
