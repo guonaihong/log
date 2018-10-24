@@ -11,7 +11,7 @@ func TestDebugf(t *testing.T) {
 		log.F(1).Error(a...)
 	}
 
-	l := NewLog("debug", "test")
+	l := New("debug", "test")
 
 	l.AddWriter(os.Stdout)
 

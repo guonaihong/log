@@ -16,11 +16,13 @@ type Log struct {
 
 	*sync.Mutex
 	*sync.WaitGroup
+	*sync.Pool
 
 	buf *bytes.Buffer
 
 	w []io.Writer
 
+	addr      *Log
 	level     int
 	funcFrame int
 	sessionID string
@@ -49,28 +51,72 @@ func levelStr2N(level string) int {
 	return lDebug
 }
 
-func NewLog(level string, procName string, w ...io.Writer) *Log {
-	return &Log{
+func New(level string, procName string, w ...io.Writer) *Log {
+	l := &Log{
 		procName:  procName,
 		Mutex:     &sync.Mutex{},
+		Pool:      &sync.Pool{},
 		WaitGroup: &sync.WaitGroup{},
 		level:     levelStr2N(level),
 		buf:       bytes.NewBuffer(make([]byte, 512)),
 		funcFrame: 3,
 		w:         append([]io.Writer{nil}, w...),
 	}
+
+	l.addr = l
+	return l
+}
+
+func (l *Log) newLog(reuse bool) *Log {
+
+	var nlog *Log
+	var ok bool
+
+	if reuse {
+		nlog, ok = l.Get().(*Log)
+
+		if !ok {
+			nlog = &Log{}
+		}
+	} else {
+		nlog = &Log{}
+		//tmp := *l
+		//nlog = &tmp
+	}
+
+	nlog.init(l)
+	return nlog
+}
+
+func (l *Log) releaseLog() {
+	if l.addr != l {
+		l.Put(l)
+	}
+}
+
+func (l *Log) init(base *Log) {
+	l.procName = base.procName
+	l.Mutex = base.Mutex
+	l.Pool = base.Pool
+	l.WaitGroup = base.WaitGroup
+	l.level = base.level
+	l.buf = base.buf
+	l.addr = base.addr
+	l.w = base.w
+	l.funcFrame = base.funcFrame
+	l.sessionID = ""
 }
 
 func (l *Log) F(frame int) *Log {
-	log := *l
+	log := l.newLog(false)
 	log.funcFrame += frame
-	return &log
+	return log
 }
 
 func (l *Log) ID(sessionID string) *Log {
-	log := *l
+	log := l.newLog(false)
 	log.sessionID = sessionID
-	return &log
+	return log
 }
 
 func (l *Log) formatHeader(caller bool, level string) {
@@ -141,6 +187,7 @@ func (l *Log) multWrite(caller bool, level string, a ...interface{}) {
 	defer func() {
 		l.buf.Reset()
 		l.Unlock()
+		//l.releaseLog()
 	}()
 
 	l.formatHeader(caller, level)
@@ -164,6 +211,7 @@ func (l *Log) multWritef(caller bool, level string, format string, a ...interfac
 	defer func() {
 		l.buf.Reset()
 		l.Unlock()
+		//l.releaseLog()
 	}()
 
 	l.formatHeader(caller, level)
