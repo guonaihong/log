@@ -184,8 +184,8 @@ func (l *Log) AddWriter(w ...io.Writer) {
 
 func (l *Log) multWrite(caller bool, level string, a ...interface{}) {
 	l.Lock()
+	l.buf.Reset()
 	defer func() {
-		l.buf.Reset()
 		l.Unlock()
 		//l.releaseLog()
 	}()
@@ -208,8 +208,8 @@ func (l *Log) multWrite(caller bool, level string, a ...interface{}) {
 
 func (l *Log) multWritef(caller bool, level string, format string, a ...interface{}) {
 	l.Lock()
+	l.buf.Reset()
 	defer func() {
-		l.buf.Reset()
 		l.Unlock()
 		//l.releaseLog()
 	}()
