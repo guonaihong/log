@@ -352,6 +352,17 @@ func (f *File) checkSize(b []byte) (err error) {
 		return
 	}
 
+	if _, err = os.Stat(f.fd.Name()); err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+
+		if err = f.openNew(); err != nil {
+			return err
+		}
+		return
+	}
+
 	sb, err := f.fd.Stat()
 	if err != nil {
 		return err
