@@ -42,15 +42,16 @@ type File struct {
 	maxSize    int
 	maxArchive int
 
-	close       bool
-	dir         string
-	prefix      string
-	defaultName string
-	filename    chan string
-	quitDel     chan struct{}
-	maybeDel    chan struct{}
-	errs        chan error
-	fd          *os.File
+	close         bool
+	dir           string
+	prefix        string
+	archivePrefix string
+	defaultName   string
+	filename      chan string
+	quitDel       chan struct{}
+	maybeDel      chan struct{}
+	errs          chan error
+	fd            *os.File
 	sync.RWMutex
 	sync.WaitGroup
 }
@@ -66,18 +67,21 @@ func genFileSuffix(compressType CompressType) (suffix string) {
 
 func NewFile(prefix string, dir string, compress CompressType, maxSize, maxArchive int) (f *File) {
 
-	if prefix == "" {
-		prefix = defaultPrefix
-	}
-
 	if maxSize == 0 {
 		maxSize = defaultMaxSize
 	}
 
-	name := ""
+	name := filepath.Base(dir)
+	archivePrefix := ""
+
+	if prefix == "" {
+		archivePrefix = name
+		if p := strings.LastIndex(name, "."); p != -1 {
+			archivePrefix = name[:p]
+		}
+	}
 
 	if len(dir) > 0 && (dir[len(dir)-1] != '/' && dir[len(dir)-1] != '\\') {
-		name = filepath.Base(dir)
 		if name == "." {
 			name = ""
 		} else if !strings.HasSuffix(name, ".log") {
@@ -93,16 +97,17 @@ func NewFile(prefix string, dir string, compress CompressType, maxSize, maxArchi
 	}
 
 	f = &File{
-		dir:         dir,
-		defaultName: strings.TrimSpace(name),
-		compress:    compress,
-		prefix:      prefix,
-		maxSize:     maxSize,
-		maxArchive:  maxArchive,
-		filename:    make(chan string, 1000),
-		maybeDel:    make(chan struct{}, 1000),
-		quitDel:     make(chan struct{}),
-		errs:        make(chan error, 10),
+		dir:           dir,
+		defaultName:   strings.TrimSpace(name),
+		compress:      compress,
+		prefix:        prefix,
+		archivePrefix: archivePrefix,
+		maxSize:       maxSize,
+		maxArchive:    maxArchive,
+		filename:      make(chan string, 1000),
+		maybeDel:      make(chan struct{}, 1000),
+		quitDel:       make(chan struct{}),
+		errs:          make(chan error, 10),
 	}
 
 	f.Add(2)
@@ -112,8 +117,17 @@ func NewFile(prefix string, dir string, compress CompressType, maxSize, maxArchi
 	return f
 }
 
+func (f *File) getPrefix() string {
+	prefix := f.prefix
+	if prefix == "" {
+		prefix = f.archivePrefix
+	}
+	return prefix
+}
+
 func (f *File) fileNameNew() string {
-	return f.dir + "/" + f.prefix + genFileName()
+
+	return f.dir + "/" + f.getPrefix() + genFileName()
 }
 
 func (f *File) defaultFileName() string {
@@ -130,8 +144,8 @@ func (f *File) getTimeFormFile(name string) string {
 		name = name[:len(name)-len(".log")]
 	}
 
-	if strings.HasPrefix(name, f.prefix) {
-		name = name[len(f.prefix):]
+	if strings.HasPrefix(name, f.getPrefix()) {
+		name = name[len(f.getPrefix()):]
 	}
 
 	return name
@@ -143,7 +157,7 @@ func (f *File) sortFile(files0 []os.FileInfo) []os.FileInfo {
 
 	for _, v := range files0 {
 
-		if !strings.HasPrefix(v.Name(), f.prefix) {
+		if !strings.HasPrefix(v.Name(), f.getPrefix()) {
 			continue
 		}
 
