@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 type Log struct {
@@ -26,6 +27,7 @@ type Log struct {
 	level     int
 	funcFrame int
 	sessionID string
+	cb        func(s string)
 }
 
 const (
@@ -105,6 +107,12 @@ func (l *Log) init(base *Log) {
 	l.w = base.w
 	l.funcFrame = base.funcFrame
 	l.sessionID = ""
+}
+
+func (l *Log) Cb(cb func(s string)) *Log {
+	log := l.newLog(false)
+	log.cb = cb
+	return log
 }
 
 func (l *Log) F(frame int) *Log {
@@ -203,6 +211,10 @@ func (l *Log) multWrite(caller bool, level string, a ...interface{}) {
 		}(w)
 	}
 
+	b := l.buf.Bytes()
+	if l.cb != nil {
+		l.cb(*(*string)(unsafe.Pointer(&b)))
+	}
 	l.Wait()
 }
 
@@ -227,6 +239,10 @@ func (l *Log) multWritef(caller bool, level string, format string, a ...interfac
 		}(w)
 	}
 
+	b := l.buf.Bytes()
+	if l.cb != nil {
+		l.cb(*(*string)(unsafe.Pointer(&b)))
+	}
 	l.Wait()
 }
 

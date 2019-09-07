@@ -1,10 +1,20 @@
 package log
 
 import (
+	"github.com/stretchr/testify/assert"
 	"os"
 	"sync"
 	"testing"
 )
+
+func TestCb(t *testing.T) {
+	l := New("debug", "test")
+	called := false
+
+	l.Cb(func(s string) { called = true }).Infof("test cb")
+
+	assert.Equal(t, called, true)
+}
 
 func TestDebugf(t *testing.T) {
 	error2 := func(log *Log, a ...interface{}) {
